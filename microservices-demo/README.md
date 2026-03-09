@@ -168,11 +168,63 @@ This command:
 
 ### 2. Verify services are healthy
 
+After starting the stack, wait 30–45 seconds for all services to pass their healthchecks, then run:
+
+#### Check container status
+
 ```bash
 docker compose ps
 ```
 
-All services should show `healthy`.
+All application services should show `(healthy)` in the STATUS column:
+
+- `identity-service` – Up (healthy)
+- `profile-service` – Up (healthy)
+- `notification-service` – Up (healthy)
+
+Infrastructure (postgres, zookeeper, kafka) should also be healthy. The `init-db` container will show `Exited (0)` after creating the databases.
+
+#### Verify health endpoints (Actuator)
+
+Each Java service exposes Spring Boot Actuator’s health endpoint at `/actuator/health`. You can verify them with:
+
+```bash
+# Identity Service (port 8081)
+curl -s http://localhost:8081/actuator/health | jq .
+
+# Profile Service (port 8082)
+curl -s http://localhost:8082/actuator/health | jq .
+
+# Notification Service (port 8083)
+curl -s http://localhost:8083/actuator/health | jq .
+```
+
+Expected response (each service returns `"status":"UP"` and may include components such as `db`, `diskSpace`, `ping`; notification-service also includes `grpcChannel`):
+
+```json
+{
+  "status": "UP",
+  "components": {
+    "db": { "status": "UP", "details": { "database": "PostgreSQL", ... } },
+    "diskSpace": { "status": "UP", ... },
+    "ping": { "status": "UP" }
+  }
+}
+```
+
+If any service is not healthy, check logs with:
+
+```bash
+docker compose logs <service-name>
+```
+
+For a clean run from scratch:
+
+```bash
+docker compose down && docker compose up -d --build
+```
+
+Then wait ~30–45 seconds before running the verification steps above.
 
 ---
 
@@ -410,7 +462,7 @@ docker compose down -v
 - [ ] Add **refresh tokens** with a Redis token store
 - [ ] Enable **Kafka SSL/SASL** authentication
 - [ ] Enable **TLS on gRPC** (mutual TLS for internal service comms)
-- [ ] Add **Spring Boot Actuator** with Prometheus metrics
+- [ ] Add **Prometheus metrics** to Spring Boot Actuator (health is already exposed)
 - [ ] Implement **circuit breaker** (Resilience4j) around gRPC calls
 - [ ] Replace single Kafka broker with a **3-broker cluster** (replication-factor=3)
 - [ ] Add **dead-letter topics** for failed Kafka messages

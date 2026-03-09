@@ -1,7 +1,13 @@
 -- Notification Service – initial schema
 -- Migration: V1__init.sql
-
-CREATE TYPE IF NOT EXISTS notification_status AS ENUM ('PENDING', 'SENT', 'FAILED');
+-- PostgreSQL does not support CREATE TYPE IF NOT EXISTS for ENUMs; use DO block.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notification_status') THEN
+        CREATE TYPE notification_status AS ENUM ('PENDING', 'SENT', 'FAILED');
+    END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS notification (
     id         UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
