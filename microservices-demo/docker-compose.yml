@@ -97,7 +97,8 @@ services:
       retries: 10
 
   # ── DB initialiser (one-shot) ──────────────────────────────────────────────
-  # Creates identity_db, profile_db, notification_db if they don't exist.
+  # Creates identity_db, profile_db, notification_db only if they don't exist
+  # (avoids "database already exists" in Postgres logs when running 'up' again).
   init-db:
     image: postgres:16-alpine
     container_name: init-db
@@ -108,9 +109,9 @@ services:
       PGPASSWORD: postgres
     command: >
       sh -c "
-        psql -h postgres -U postgres -c 'CREATE DATABASE identity_db' 2>/dev/null || true;
-        psql -h postgres -U postgres -c 'CREATE DATABASE profile_db' 2>/dev/null || true;
-        psql -h postgres -U postgres -c 'CREATE DATABASE notification_db' 2>/dev/null || true;
+        for db in identity_db profile_db notification_db; do
+          psql -h postgres -U postgres -tAc \"SELECT 1 FROM pg_database WHERE datname = '$$db'\" | grep -q 1 || psql -h postgres -U postgres -c \"CREATE DATABASE $$db\";
+        done;
         echo 'Databases ready.'
       "
     networks:

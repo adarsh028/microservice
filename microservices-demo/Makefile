@@ -9,7 +9,7 @@
 COMPOSE := docker compose
 
 .PHONY: help up start down down-v ps ps-a status logs build build-no-cache \
-        restart clean clean-all health verify rebuild up-build \
+        restart clean clean-all health verify rebuild up-build db-check \
         build-identity build-profile build-notification \
         logs-identity logs-profile logs-notification
 
@@ -101,6 +101,20 @@ health verify: ## Curl /actuator/health for all three Java services
 	@echo ""
 	@echo "=== notification-service (8083) ==="
 	@curl -s http://localhost:8083/actuator/health | (jq . 2>/dev/null || cat)
+
+# -----------------------------------------------------------------------------
+# Database
+# -----------------------------------------------------------------------------
+
+db-check: ## Test PostgreSQL connection and verify identity_db, profile_db, notification_db exist
+	@echo "Testing PostgreSQL connection..."
+	@$(COMPOSE) exec -T postgres psql -U postgres -c "SELECT 1 AS connected;" >/dev/null || { echo "Error: Cannot connect to PostgreSQL. Is the stack running? (make up)"; exit 1; }
+	@echo "Connection OK. Checking databases..."
+	@for db in identity_db profile_db notification_db; do \
+	  $(COMPOSE) exec -T postgres psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$$db'" | grep -q 1 || { echo "Error: Database '$$db' does not exist."; exit 1; }; \
+	  echo "  $$db: exists"; \
+	done
+	@echo "All three databases exist."
 
 # -----------------------------------------------------------------------------
 # Clean
