@@ -46,3 +46,13 @@ jwt:
 kafka:
   topics:
     user-created: user-created
+
+# ── Actuator ──────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always

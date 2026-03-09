@@ -52,10 +52,7 @@
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-database-postgresql</artifactId>
+      <!-- PostgreSQL support is bundled in flyway-core for Flyway 9.x (Spring Boot 3.2.x) -->
     </dependency>
 
     <!-- ── Kafka ──────────────────────────────────────────────────────── -->
@@ -75,6 +72,12 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- ── Actuator ───────────────────────────────────────────────────── -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
     <!-- ── Lombok ─────────────────────────────────────────────────────── -->

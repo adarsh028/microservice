@@ -44,7 +44,7 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      test: ["CMD-SHELL", "echo srvr | nc localhost 2181 | grep -q Mode"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -108,12 +108,9 @@ services:
       PGPASSWORD: postgres
     command: >
       sh -c "
-        psql -h postgres -U postgres -c \"SELECT 1 FROM pg_database WHERE datname='identity_db'\" | grep -q 1
-          || psql -h postgres -U postgres -c 'CREATE DATABASE identity_db';
-        psql -h postgres -U postgres -c \"SELECT 1 FROM pg_database WHERE datname='profile_db'\" | grep -q 1
-          || psql -h postgres -U postgres -c 'CREATE DATABASE profile_db';
-        psql -h postgres -U postgres -c \"SELECT 1 FROM pg_database WHERE datname='notification_db'\" | grep -q 1
-          || psql -h postgres -U postgres -c 'CREATE DATABASE notification_db';
+        psql -h postgres -U postgres -c 'CREATE DATABASE identity_db' 2>/dev/null || true;
+        psql -h postgres -U postgres -c 'CREATE DATABASE profile_db' 2>/dev/null || true;
+        psql -h postgres -U postgres -c 'CREATE DATABASE notification_db' 2>/dev/null || true;
         echo 'Databases ready.'
       "
     networks:
@@ -125,6 +122,7 @@ services:
     build:
       context: ./identity-service
       dockerfile: Dockerfile
+      network: host
     container_name: identity-service
     depends_on:
       init-db:
@@ -148,7 +146,7 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8081/.well-known/jwks.json || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -157,8 +155,9 @@ services:
   # ── Profile Service ────────────────────────────────────────────────────────
   profile-service:
     build:
-      context: ./profile-service
-      dockerfile: Dockerfile
+      context: .                              # repo root – gives access to proto/
+      dockerfile: profile-service/Dockerfile
+      network: host
     container_name: profile-service
     depends_on:
       init-db:
@@ -186,8 +185,9 @@ services:
   # ── Notification Service ───────────────────────────────────────────────────
   notification-service:
     build:
-      context: ./notification-service
-      dockerfile: Dockerfile
+      context: .                              # repo root – gives access to proto/
+      dockerfile: notification-service/Dockerfile
+      network: host
     container_name: notification-service
     depends_on:
       init-db:

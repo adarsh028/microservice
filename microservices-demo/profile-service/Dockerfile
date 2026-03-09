@@ -1,16 +1,18 @@
 # ---- Build stage -------------------------------------------------------
+# Build context is the repo root (microservices-demo/) so that the shared
+# proto/ directory is accessible alongside the service source.
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# Copy proto files for code generation
-COPY ../proto /proto
+# Copy shared proto files first (needed by protobuf-maven-plugin)
+COPY proto /proto
 
-# Cache dependencies
-COPY pom.xml .
+# Cache Maven dependencies before copying source
+COPY profile-service/pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Build
-COPY src ./src
+# Build the service
+COPY profile-service/src ./src
 RUN mvn package -DskipTests -B
 
 # ---- Runtime stage -----------------------------------------------------
