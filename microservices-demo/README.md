@@ -343,6 +343,8 @@ curl -s "http://localhost:8082/profiles/${USER_ID}" \
 
 ### Notification Service (port 8083)
 
+Notifications are **in-app only**: they are persisted in `notification_db` and returned via the API. There is no outbound delivery (no email, SMS, or push). When a user is created, the service builds a welcome message, stores it with status `SENT`, and the user retrieves it with `GET /notifications/me`. In production you would add a step to call an email/SMS provider before marking as `SENT`.
+
 #### Get my notifications
 
 ```bash
