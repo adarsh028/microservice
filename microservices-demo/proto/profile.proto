@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package profile;
+
+option java_multiple_files = true;
+option java_package = "com.demo.grpc.profile";
+option java_outer_classname = "ProfileProto";
+
+// ---------------------------------------------------------------------------
+// ProfileService – exposed by Profile Service, consumed by Notification Service
+// ---------------------------------------------------------------------------
+service ProfileService {
+  rpc GetProfile    (GetProfileRequest)    returns (GetProfileResponse);
+  rpc UpdateProfile (UpdateProfileRequest) returns (UpdateProfileResponse);
+}
+
+// ---- Requests ----
+
+message GetProfileRequest {
+  string user_id = 1;
+}
+
+message UpdateProfileRequest {
+  string user_id   = 1;
+  string name      = 2;
+  string bio       = 3;
+  string avatar_url = 4;
+}
+
+// ---- Responses ----
+
+message GetProfileResponse {
+  string user_id    = 1;
+  string name       = 2;
+  string bio        = 3;
+  string avatar_url  = 4;
+  string created_at  = 5;
+  bool   found      = 6;
+}
+
+message UpdateProfileResponse {
+  bool   success = 1;
+  string message = 2;
+}

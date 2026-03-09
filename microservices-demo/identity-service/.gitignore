@@ -1,0 +1,6 @@
+# Maven build output
+target/
+
+# RSA keys (if generated locally)
+src/main/resources/*.pem
+src/main/resources/*.key

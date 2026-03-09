@@ -1,0 +1,54 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: notification-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/notification_db
+    username: ${DB_USER:postgres}
+    password: ${DB_PASS:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.demo.notification.event.UserCreatedEvent
+
+# ── gRPC client (calls Profile Service) ───────────────────────────────────
+grpc:
+  client:
+    profile-service:
+      address: ${PROFILE_GRPC_ADDRESS:static://localhost:9090}
+      negotiation-type: plaintext
+
+# ── JWKS / JWT ─────────────────────────────────────────────────────────────
+security:
+  jwks-uri: ${JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+  jwks-refresh-interval: 300
+
+# ── Kafka topics ────────────────────────────────────────────────────────────
+kafka:
+  topics:
+    user-created: user-created
