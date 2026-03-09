@@ -1,0 +1,60 @@
+{
+  "id": "env-microservices-demo",
+  "name": "Microservices Demo - Local",
+  "values": [
+    {
+      "key": "identity_base_url",
+      "value": "http://localhost:8081",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "profile_base_url",
+      "value": "http://localhost:8082",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "notification_base_url",
+      "value": "http://localhost:8083",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "JWT Bearer token — auto-set by the Login request"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of the authenticated user — auto-set by the Login request"
+    },
+    {
+      "key": "user_email",
+      "value": "testuser@example.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "user_password",
+      "value": "password123456",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "target_user_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "A specific userId to fetch in GET /profiles/{userId}"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-03-10T00:00:00.000Z",
+  "_postman_exported_using": "Postman/10"
+}

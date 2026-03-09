@@ -1,0 +1,609 @@
+{
+  "info": {
+    "_postman_id": "col-microservices-demo",
+    "name": "Microservices Demo",
+    "description": "End-to-end tests for the Identity, Profile, and Notification microservices.\n\n**Quick start**\n1. Import `microservices-demo.environment.json` and select it as the active environment.\n2. Run **Identity Service → Sign Up** to create a user.\n3. Run **Identity Service → Login** — the `access_token` and `user_id` variables are set automatically.\n4. All other protected endpoints will now use the saved token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Identity Service",
+      "description": "Authentication endpoints exposed on port 8081.",
+      "item": [
+        {
+          "name": "Sign Up",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{identity_base_url}}/auth/signup",
+              "host": ["{{identity_base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Register a new user. Emits a `user-created` Kafka event which triggers profile and notification creation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains accessToken\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"accessToken\");",
+                  "    pm.expect(body.tokenType).to.eql(\"Bearer\");",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.accessToken) {",
+                  "    pm.environment.set(\"access_token\", body.accessToken);",
+                  "    pm.environment.set(\"user_id\", body.userId);",
+                  "    console.log(\"access_token and user_id saved from Sign Up response\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{identity_base_url}}/auth/login",
+              "host": ["{{identity_base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Authenticate an existing user and receive a signed RS256 JWT. The test script automatically stores `access_token` and `user_id` in the environment."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response structure is correct\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(\"accessToken\", \"tokenType\", \"expiresIn\", \"userId\", \"email\");",
+                  "    pm.expect(body.tokenType).to.eql(\"Bearer\");",
+                  "    pm.expect(body.expiresIn).to.eql(3600);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.accessToken) {",
+                  "    pm.environment.set(\"access_token\", body.accessToken);",
+                  "    pm.environment.set(\"user_id\", body.userId);",
+                  "    pm.environment.set(\"target_user_id\", body.userId);",
+                  "    console.log(\"access_token saved:\", body.accessToken.substring(0, 20) + \"...\");",
+                  "    console.log(\"user_id saved:\", body.userId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get JWKS (Public Keys)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{identity_base_url}}/.well-known/jwks.json",
+              "host": ["{{identity_base_url}}"],
+              "path": [".well-known", "jwks.json"]
+            },
+            "description": "Returns the RSA public key set used by Profile and Notification services to validate JWT signatures. No authentication required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"JWKS contains keys array\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"keys\");",
+                  "    pm.expect(body.keys).to.be.an(\"array\").that.is.not.empty;",
+                  "    pm.expect(body.keys[0].kty).to.eql(\"RSA\");",
+                  "    pm.expect(body.keys[0].alg).to.eql(\"RS256\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{identity_base_url}}/actuator/health",
+              "host": ["{{identity_base_url}}"],
+              "path": ["actuator", "health"]
+            },
+            "description": "Spring Boot Actuator health endpoint. No authentication required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Service is UP\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"UP\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Profile Service",
+      "description": "User profile endpoints exposed on port 8082. All routes except /actuator/health require a Bearer JWT.",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{profile_base_url}}/profiles/me",
+              "host": ["{{profile_base_url}}"],
+              "path": ["profiles", "me"]
+            },
+            "description": "Returns the profile of the currently authenticated user (derived from the JWT `sub` claim). Requires `access_token` env variable to be set."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Profile structure is correct\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"userId\");",
+                  "    pm.expect(body).to.have.property(\"createdAt\");",
+                  "});",
+                  "",
+                  "pm.test(\"userId matches logged-in user\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.userId).to.eql(pm.environment.get(\"user_id\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile by User ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{profile_base_url}}/profiles/{{target_user_id}}",
+              "host": ["{{profile_base_url}}"],
+              "path": ["profiles", "{{target_user_id}}"]
+            },
+            "description": "Fetches a profile by a specific UUID. `target_user_id` is auto-populated after Login, or set it manually in the environment."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK or 404 Not Found\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Profile has userId field\", () => {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"userId\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{profile_base_url}}/profiles/me",
+              "host": ["{{profile_base_url}}"],
+              "path": ["profiles", "me"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User\",\n  \"bio\": \"Software engineer testing microservices\",\n  \"avatarUrl\": \"https://example.com/avatars/testuser.jpg\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Updates the authenticated user's profile. All fields are optional — only provided fields are updated."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Updated profile returned\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"userId\");",
+                  "    pm.expect(body).to.have.property(\"updatedAt\");",
+                  "});",
+                  "",
+                  "pm.test(\"Name was updated\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.name).to.eql(\"Test User\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{profile_base_url}}/actuator/health",
+              "host": ["{{profile_base_url}}"],
+              "path": ["actuator", "health"]
+            },
+            "description": "Spring Boot Actuator health endpoint."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Service is UP\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"UP\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notification Service",
+      "description": "Notification endpoints exposed on port 8083. All routes except /actuator/health require a Bearer JWT.",
+      "item": [
+        {
+          "name": "Get My Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{notification_base_url}}/notifications/me",
+              "host": ["{{notification_base_url}}"],
+              "path": ["notifications", "me"]
+            },
+            "description": "Returns all notifications for the authenticated user. A welcome notification is created automatically when the user signs up (via Kafka + gRPC)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.be.an(\"array\");",
+                  "});",
+                  "",
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test(\"Notification structure is correct\", () => {",
+                  "        const notification = pm.response.json()[0];",
+                  "        pm.expect(notification).to.have.all.keys(\"id\", \"userId\", \"message\", \"status\", \"createdAt\");",
+                  "        pm.expect(notification.status).to.be.oneOf([\"PENDING\", \"SENT\", \"FAILED\"]);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{notification_base_url}}/actuator/health",
+              "host": ["{{notification_base_url}}"],
+              "path": ["actuator", "health"]
+            },
+            "description": "Spring Boot Actuator health endpoint."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Service is UP\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"UP\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Error & Edge Cases",
+      "description": "Requests that exercise error paths and boundary conditions.",
+      "item": [
+        {
+          "name": "Sign Up - Duplicate Email (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{identity_base_url}}/auth/signup",
+              "host": ["{{identity_base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Signing up with an already-registered email should return 409 Conflict. Run AFTER Sign Up."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409 Conflict\", () => {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Wrong Password (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{identity_base_url}}/auth/login",
+              "host": ["{{identity_base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"wrongpassword\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Providing an incorrect password should return 401 Unauthorized."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401 Unauthorized\", () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign Up - Invalid Email Format (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{identity_base_url}}/auth/signup",
+              "host": ["{{identity_base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"password123456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Sending a malformed email should fail Bean Validation and return 400 Bad Request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign Up - Password Too Short (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{identity_base_url}}/auth/signup",
+              "host": ["{{identity_base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"valid@example.com\",\n  \"password\": \"short\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Password shorter than 8 characters should return 400 Bad Request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Protected Endpoint - No Token (401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{profile_base_url}}/profiles/me",
+              "host": ["{{profile_base_url}}"],
+              "path": ["profiles", "me"]
+            },
+            "description": "Calling a protected endpoint without a Bearer token should return 401 Unauthorized."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401 Unauthorized\", () => {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile - Invalid UUID (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{profile_base_url}}/profiles/not-a-valid-uuid",
+              "host": ["{{profile_base_url}}"],
+              "path": ["profiles", "not-a-valid-uuid"]
+            },
+            "description": "Passing a non-UUID path segment should return 400 Bad Request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
