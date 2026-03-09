@@ -60,6 +60,21 @@ Client ──POST /auth/signup──► Identity Service
 
 ---
 
+## Documentation
+
+Detailed business and technical documentation lives in **[docs/](docs/)**:
+
+- **[docs/flow.md](docs/flow.md)** – End-to-end flow (business + technical), which Java file does what, and how JWT/JWKS, gRPC, and Kafka are used.
+- **[docs/java-reference.md](docs/java-reference.md)** – Per-service Java file reference.
+- **[docs/architecture.md](docs/architecture.md)** – Services, ports, infrastructure.
+- **[docs/jwt-jwks.md](docs/jwt-jwks.md)** – JWT and JWKS in detail.
+- **[docs/grpc.md](docs/grpc.md)** – gRPC between Profile and Notification.
+- **[docs/kafka-events.md](docs/kafka-events.md)** – Kafka topic and `user-created` event.
+
+See [docs/README.md](docs/README.md) for the full index.
+
+---
+
 ## Project Structure
 
 ```
