@@ -8,8 +8,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Publishes domain events to Kafka topics.
  */
@@ -27,21 +25,22 @@ public class EventPublisher {
      * Emits a {@link UserCreatedEvent} on the {@code user-created} topic.
      * The userId is used as the Kafka message key to guarantee ordering
      * for a given user across partitions.
+     *
+     * <p>Blocks until the send completes so that signup only succeeds when
+     * the event is in Kafka (Profile and Notification services can then consume it).
      */
     public void publishUserCreated(UserCreatedEvent event) {
-        CompletableFuture<SendResult<String, Object>> future =
-                kafkaTemplate.send(userCreatedTopic, event.getUserId(), event);
-
-        future.whenComplete((result, ex) -> {
-            if (ex != null) {
-                log.error("Failed to publish UserCreatedEvent for userId={}: {}",
-                        event.getUserId(), ex.getMessage());
-            } else {
-                log.info("UserCreatedEvent published userId={} partition={} offset={}",
-                        event.getUserId(),
-                        result.getRecordMetadata().partition(),
-                        result.getRecordMetadata().offset());
-            }
-        });
+        try {
+            SendResult<String, Object> result =
+                    kafkaTemplate.send(userCreatedTopic, event.getUserId(), event).get();
+            log.info("UserCreatedEvent published userId={} partition={} offset={}",
+                    event.getUserId(),
+                    result.getRecordMetadata().partition(),
+                    result.getRecordMetadata().offset());
+        } catch (Exception ex) {
+            log.error("Failed to publish UserCreatedEvent for userId={}: {}",
+                    event.getUserId(), ex.getMessage());
+            throw new RuntimeException("Failed to publish user-created event; check Kafka connectivity", ex);
+        }
     }
 }

@@ -43,31 +43,41 @@ public class UserCreatedConsumer {
     )
     @Transactional
     public void onUserCreated(UserCreatedEvent event) {
+        if (event == null || event.getUserId() == null || event.getUserId().isBlank()) {
+            log.error("Invalid UserCreatedEvent: event or userId is null/blank; skipping");
+            throw new IllegalArgumentException("UserCreatedEvent must have non-blank userId");
+        }
         log.info("Received UserCreatedEvent: userId={} email={}", event.getUserId(), event.getEmail());
 
-        // ── Step 1: Fetch profile via gRPC ─────────────────────────────────
-        GetProfileResponse profileResponse = profileServiceClient.getProfile(event.getUserId());
+        try {
+            // ── Step 1: Fetch profile via gRPC ─────────────────────────────────
+            GetProfileResponse profileResponse = profileServiceClient.getProfile(event.getUserId());
 
-        // ── Step 2: Build notification message ────────────────────────────
-        String displayName = resolveDisplayName(profileResponse, event.getEmail());
-        String message     = buildWelcomeMessage(displayName);
+            // ── Step 2: Build notification message ────────────────────────────
+            String displayName = resolveDisplayName(profileResponse, event.getEmail());
+            String message     = buildWelcomeMessage(displayName);
 
-        // ── Step 3: Persist notification ──────────────────────────────────
-        Notification notification = Notification.builder()
-                .userId(UUID.fromString(event.getUserId()))
-                .message(message)
-                .status(Notification.NotificationStatus.SENT)   // In production: PENDING → send → SENT
-                .build();
+            // ── Step 3: Persist notification ──────────────────────────────────
+            Notification notification = Notification.builder()
+                    .userId(UUID.fromString(event.getUserId()))
+                    .message(message)
+                    .status(Notification.NotificationStatus.SENT)   // In production: PENDING → send → SENT
+                    .build();
 
-        notificationRepository.save(notification);
-        log.info("Welcome notification created for userId={} (notificationId={})",
-                event.getUserId(), notification.getId());
+            notificationRepository.save(notification);
+            log.info("Welcome notification created for userId={} (notificationId={})",
+                    event.getUserId(), notification.getId());
+        } catch (Exception e) {
+            log.error("Failed to process UserCreatedEvent userId={}: {}",
+                    event.getUserId(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private String resolveDisplayName(GetProfileResponse profile, String email) {
-        if (profile != null && profile.getFound() && !profile.getName().isBlank()) {
+        if (profile != null && profile.getFound() && profile.getName() != null && !profile.getName().isBlank()) {
             return profile.getName();
         }
         // Fall back to the local part of the email address

@@ -447,6 +447,24 @@ Cross-service data access happens exclusively via gRPC or Kafka events.
 
 ---
 
+## Troubleshooting
+
+### `GET /notifications/me` returns empty `[]`
+
+The welcome notification is created when a **new user signs up**: Identity publishes a `user-created` event to Kafka, and Notification Service consumes it and persists a row in `notification_db`. If you see no notifications:
+
+1. **Create the user after the stack is fully up** – Run `make up` (or `docker compose up -d`), wait ~30–45s until all services are healthy, then sign up via `POST /auth/signup`. Signup now blocks until the event is published to Kafka.
+2. **Check Docker logs** to see where the flow stops:
+   - **Identity:** `docker compose logs identity-service` (or `make logs SVC=identity-service`). Look for `UserCreatedEvent published userId=... partition=... offset=...`. If you see `Failed to publish UserCreatedEvent` or a Kafka exception, Identity cannot reach Kafka.
+   - **Notification:** `docker compose logs notification-service`. Look for `Received UserCreatedEvent: userId=...` then `Welcome notification created for userId=...`. If you see `Received` but not `Welcome notification created`, look for `Failed to process UserCreatedEvent` and the exception (e.g. gRPC or DB error).
+3. **Confirm databases** – `make db-check` verifies that `notification_db` exists. The table is created by Flyway on first run.
+
+### Signup fails with "Failed to publish user-created event"
+
+Kafka is unreachable from Identity Service. Ensure Kafka and Zookeeper are healthy (`docker compose ps`), and that the Identity container uses `KAFKA_BOOTSTRAP=kafka:29092` (set in `docker-compose.yml`).
+
+---
+
 ## Stopping the Stack
 
 ```bash
