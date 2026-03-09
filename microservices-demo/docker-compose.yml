@@ -20,8 +20,6 @@
 #    backend  – internal; all services communicate here
 # =============================================================================
 
-version: "3.9"
-
 # ── Shared environment fragments ──────────────────────────────────────────────
 x-db-env: &db-env
   DB_USER: postgres
