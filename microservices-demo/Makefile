@@ -8,7 +8,7 @@
 
 COMPOSE := docker compose
 
-.PHONY: help up start down down-v ps status logs build build-no-cache \
+.PHONY: help up start down down-v ps ps-a status logs build build-no-cache \
         restart clean clean-all health verify rebuild up-build \
         build-identity build-profile build-notification \
         logs-identity logs-profile logs-notification
@@ -69,6 +69,9 @@ build-notification: ## Build notification-service image only
 ps status: ## Show container status
 	$(COMPOSE) ps
 
+ps-a: ## Show container status including stopped
+	$(COMPOSE) ps -a
+
 logs: ## Follow all logs; use 'make logs SVC=identity-service' for one service
 ifdef SVC
 	$(COMPOSE) logs -f $(SVC)
@@ -91,13 +94,13 @@ logs-notification: ## Follow notification-service logs
 
 health verify: ## Curl /actuator/health for all three Java services
 	@echo "=== identity-service (8081) ==="
-	@curl -s http://localhost:8081/actuator/health | jq . 2>/dev/null || curl -s http://localhost:8081/actuator/health
+	@curl -s http://localhost:8081/actuator/health | (jq . 2>/dev/null || cat)
 	@echo ""
 	@echo "=== profile-service (8082) ==="
-	@curl -s http://localhost:8082/actuator/health | jq . 2>/dev/null || curl -s http://localhost:8082/actuator/health
+	@curl -s http://localhost:8082/actuator/health | (jq . 2>/dev/null || cat)
 	@echo ""
 	@echo "=== notification-service (8083) ==="
-	@curl -s http://localhost:8083/actuator/health | jq . 2>/dev/null || curl -s http://localhost:8083/actuator/health
+	@curl -s http://localhost:8083/actuator/health | (jq . 2>/dev/null || cat)
 
 # -----------------------------------------------------------------------------
 # Clean
@@ -106,7 +109,6 @@ health verify: ## Curl /actuator/health for all three Java services
 clean: down-v ## Remove containers and volumes; images are kept
 	@echo "Containers and volumes removed. Images kept. Use 'docker image prune' to remove unused images."
 
-clean-all: down-v ## Remove containers, volumes, and prune project images
-	$(COMPOSE) build --no-cache 2>/dev/null || true
-	docker image prune -f --filter "label=com.docker.compose.project=microservices-demo" 2>/dev/null || true
-	@echo "Containers, volumes, and project images cleaned."
+clean-all: ## Remove containers, volumes, and images built by this project
+	$(COMPOSE) down -v --rmi local
+	@echo "Containers, volumes, and project images removed."
